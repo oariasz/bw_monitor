@@ -1,0 +1,12 @@
+bw_monitor/
+├── Logotipo PNG.png
+├── LICENSE.txt
+├── README.md
+├── requirements.txt
+├── .gitignore
+├── bw_monitor/
+│   ├── __init__.py
+│   ├── monitor.py
+│   ├── utils.py
+├── scripts/
+│   ├── activate_env.sh

@@ -1,0 +1,108 @@
+
+
+Blackbox.ai
+Chat GPT 4o:
+
+
+
+Environment Setup
+I am using Python 3.11.10 in a virtual environment named myenv.
+My working directory is:
+/Users/omararias/dev/Python/bw_monitor
+My shell is: /bin/zsh.
+Purpose of the App
+The app monitors bandwidth consumption in MB for both incoming and outgoing data. It is designed to help track internet usage, particularly with expensive paid on-demand internet services.
+
+Core Features
+Default Behavior:
+
+The app starts with a default threshold of 100 MB (total usage).
+The refresh rate is set to 5 seconds by default.
+
+Bandwidth Monitoring:
+
+Monitors bandwidth usage in real-time and displays:
+Per refresh period: Incoming and outgoing bandwidth usage (in MB).
+Cumulative totals: total in, total out, and total accumulated in MB.
+The total accumulated usage will also display in GB (in parentheses) with two decimal places for all displayed values.
+
+Display Behavior:
+
+The app behaves like the top command:
+Takes over the terminal screen without scrolling.
+Refreshes continuously, even while listening for keystrokes.
+Keyboard Commands
+Reset Accumulated Usage:
+
+Press R or r:
+Resets the accumulated bandwidth usage to 0 MB.
+Displays a summary of previous usage, including:
+Total bandwidth used (in MB).
+The number of times the threshold was reached.
+Quit the App:
+
+Press Q or q:
+Quits the app.
+Displays a final summary, including:
+Total bandwidth used (in MB).
+The number of times the threshold was reached.
+Displays a goodbye message.
+Set New Refresh Rate:
+
+Press U or u:
+Specify a new refresh rate in seconds.
+Set Thresholds:
+
+Press T or t:
+Specify a new total threshold in MB.
+Press I or i:
+Specify a new incremental threshold (maximum bandwidth allowed per refresh period) in MB.
+Help Menu:
+
+Press H or h:
+Displays a help menu summarizing all available commands and options.
+Threshold Alerts
+When the total threshold is reached:
+Display the message:
+CAUTION: High consumption! Threshold <threshold> MB has been reached.
+Play three beeps to alert the user.
+Development Requirements
+Code Structure:
+
+The Python implementation must use classes.
+Follow Python best practices, including:
+Type hinting for all methods and variables.
+Short and clear comments explaining methods, variables, and key sections of the code.
+
+File Outputs:
+
+Generate a requirements.txt file listing all required libraries.
+Generate a README.md file with:
+Project description and instructions for use.
+The Logotipo PNG.png logo included at the top.
+Generate a LICENSE.txt file with:
+Permission for non-commercial use of the software.
+Create a .gitignore file:
+To exclude macOS .DS_Store hidden files.
+Environment Activation Script:
+
+Provide a script to activate the virtual environment.
+Optional Command-Line Arguments:
+
+Allow specification of the threshold (total usage) in MB.
+Allow specification of the refresh rate in seconds.
+
+
+
+- Publishing to GitHub
+Initialize a Git repository:
+bash
+git init
+git add .
+git commit -m "Initial commit"
+
+Push to a new repository under the oariasz GitHub account:
+
+bash
+git remote add origin https://github.com/oariasz/bw_monitor.git
+git push -u origin main

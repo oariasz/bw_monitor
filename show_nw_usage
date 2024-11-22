@@ -1,0 +1,13 @@
+sudo nettop -P -l 1 -x -J bytes_in,bytes_out | \
+awk -F',' 'NR==1 {print; next} { 
+    pid = $1
+    process = $2
+    bytes_in = $3
+    bytes_out = $4
+    # Convert bytes to MB and format to two decimal places
+    bytes_in_mb = sprintf("%.2f", bytes_in / (1024 * 1024))
+    bytes_out_mb = sprintf("%.2f", bytes_out / (1024 * 1024))
+    OFS=","
+    # Print formatted output
+    print pid, process, bytes_in_mb, bytes_out_mb 
+}'
