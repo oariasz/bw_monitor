@@ -4,9 +4,10 @@ import psutil
 import argparse
 import sys
 import curses
+import platform
 
 class BandwidthMonitor:
-    def __init__(self, threshold=100.0, refresh_rate=5, incremental_threshold=None, stdscr=None):
+    def __init__(self, threshold=100.0, refresh_rate=5, incremental_threshold=0.1, stdscr=None):
         """
         Initialize Bandwidth Monitor with configurable parameters
         """
@@ -14,7 +15,7 @@ class BandwidthMonitor:
         self.incremental_threshold = incremental_threshold
         self.refresh_rate = refresh_rate
 
-        # Bandwidth tracking variables
+        # Resettable bandwidth tracking variables
         self.in_usage = 0.0  # Initialize incremental incoming usage
         self.out_usage = 0.0  # Initialize incremental outgoing usage
         self.total_in = 0.0
@@ -22,12 +23,24 @@ class BandwidthMonitor:
         self.accumulated = 0.0
         self.threshold_reached_count = 0
 
+        # Lifetime bandwidth tracking variables
+        self.lifetime_total_in = 0.0
+        self.lifetime_total_out = 0.0
+        self.lifetime_accumulated = 0.0
+
         # Control flags
         self.running = True
 
         # Curses window
         self.stdscr = stdscr
         self.start_time = time.time()
+        
+    def beep(self):
+        if platform.system() == "Darwin":
+            print("Playing beep using 'osascript'...")
+            os.system('osascript -e "beep 1"')
+        else:
+            print("This method is specific to macOS.")
 
     def get_avg_usage_minute(self):
         """
@@ -41,7 +54,6 @@ class BandwidthMonitor:
             return None
         return self.accumulated / elapsed_minutes
 
-
     def get_avg_usage_hour(self):
         """
         Calculate the average usage per hour.
@@ -53,7 +65,6 @@ class BandwidthMonitor:
         if elapsed_hours == 0:
             return None
         return self.accumulated / elapsed_hours
-
 
     def get_bandwidth_usage(self):
         """
@@ -114,6 +125,11 @@ class BandwidthMonitor:
                 self.total_out += out_usage
                 self.accumulated += total_interval_usage
 
+                # Update lifetime cumulative metrics
+                self.lifetime_total_in += in_usage
+                self.lifetime_total_out += out_usage
+                self.lifetime_accumulated += total_interval_usage
+
                 # Check total threshold
                 if self.accumulated >= self.total_threshold:
                     self.threshold_reached_count += 1
@@ -134,20 +150,22 @@ class BandwidthMonitor:
         Display current bandwidth usage statistics
         Clear screen and show formatted metrics using curses
         """
-        line = 0
+        # Get the screen size (rows and columns)
+        max_rows, max_cols = self.stdscr.getmaxyx()
+        
+        # Clear the screen
         self.stdscr.clear()
+        
+        # Display header
+        line = 0
         self.stdscr.addstr(line, 0, "Bandwidth Monitor")
         self.stdscr.addstr(line + 1, 0, "=" * 20)
 
-        # Display the current parameters
+        # Display parameters
         line += 3
         self.stdscr.addstr(line, 0, f"Refresh Rate: {self.refresh_rate}s | Incremental Threshold: {self.incremental_threshold or 'N/A'} MB | Total Threshold: {self.total_threshold} MB")
 
-        # Calculate averages
-        avg_per_minute = self.get_avg_usage_minute()
-        avg_per_hour = self.get_avg_usage_hour()
-
-        # Display bandwidth usage statistics
+        # Display incremental and accumulated usage
         line += 2
         self.stdscr.addstr(line, 0, f"Incremental In:        {self.in_usage:.2f} MB")
         self.stdscr.addstr(line + 1, 0, f"Incremental Out:       {self.out_usage:.2f} MB")
@@ -156,45 +174,38 @@ class BandwidthMonitor:
         self.stdscr.addstr(line + 1, 0, f"Accumulated Out:       {self.total_out:.2f} MB ({self.total_out / 1024:.2f} GB)")
         self.stdscr.addstr(line + 2, 0, f"Total Accumulated:     {self.accumulated:.2f} MB ({self.accumulated / 1024:.2f} GB)")
         
-        # Display averages
-        line += 4
-        self.stdscr.addstr(line, 0, f"Average Usage per Minute: {avg_per_minute:.2f} MB" if avg_per_minute else "Average Usage per Minute: N/A")
-        self.stdscr.addstr(line + 1, 0, f"Average Usage per Hour:   {avg_per_hour:.2f} MB" if avg_per_hour else "Average Usage per Hour: N/A")
+        # Display lifetime usage if there is enough space
+        line += 6
+        if line + 3 < max_rows:
+            self.stdscr.addstr(line, 0, "Lifetime Usage (since start):")
+            self.stdscr.addstr(line + 1, 0, f"Lifetime In:          {self.lifetime_total_in:.2f} MB ({self.lifetime_total_in / 1024:.2f} GB)")
+            self.stdscr.addstr(line + 2, 0, f"Lifetime Out:         {self.lifetime_total_out:.2f} MB ({self.lifetime_total_out / 1024:.2f} GB)")
+            self.stdscr.addstr(line + 3, 0, f"Lifetime Total:       {self.lifetime_accumulated:.2f} MB ({self.lifetime_accumulated / 1024:.2f} GB)")
+            line += 4
         
-        # Threshold and instructions
-        line += 3
-        self.stdscr.addstr(line, 0, f"Threshold Reached: {self.threshold_reached_count}")
-        self.stdscr.addstr(line + 2, 0, "Press 'H' for Help")
+        # Display threshold and instructions if there is enough space
+        if line + 2 < max_rows:
+            self.stdscr.addstr(line, 0, f"Threshold Reached: {self.threshold_reached_count}")
+            self.stdscr.addstr(line + 2, 0, "Press 'H' for Help")
 
+        # Refresh the screen
         self.stdscr.refresh()
-
 
     def alert_total_threshold(self):
-        """
-        Alert user when total bandwidth threshold is reached
-        Plays audio beep and displays warning message
-        """
         self.stdscr.addstr(9, 0, f"CAUTION: High consumption! Threshold {self.total_threshold} MB reached.")
         self.stdscr.refresh()
-        # Beep sound
-        curses.beep()
+        self.beep()
 
     def alert_incremental_threshold(self, current_usage):
-        """
-        Alert user when per-interval bandwidth exceeds limit
-        """
         self.stdscr.addstr(10, 0, f"WARNING: Interval usage {current_usage:.2f} MB exceeds {self.incremental_threshold} MB limit.")
         self.stdscr.refresh()
-        curses.beep()
+        self.beep()
 
     def reset(self):
-        """
-        Reset accumulated bandwidth metrics
-        Displays summary of previous usage
-        """
         previous_total = self.accumulated
         previous_threshold_count = self.threshold_reached_count
 
+        # Reset only the resettable metrics
         self.total_in = 0.0
         self.total_out = 0.0
         self.accumulated = 0.0
@@ -207,33 +218,26 @@ class BandwidthMonitor:
         time.sleep(2)
 
     def quit(self):
-        """
-        Terminate monitoring and display final summary using standard print.
-        """
         self.running = False
-
-        # Calculate elapsed time
         elapsed_time = time.time() - self.start_time
         elapsed_hours, rem = divmod(int(elapsed_time), 3600)
         elapsed_minutes, elapsed_seconds = divmod(rem, 60)
         elapsed_formatted = f"{elapsed_hours:02}:{elapsed_minutes:02}:{elapsed_seconds:02}"
 
-        # Get averages
         avg_per_minute = self.get_avg_usage_minute()
         avg_per_hour = self.get_avg_usage_hour()
 
-        # Clear curses screen and end curses
         curses.endwin()
+        os.system("clear")
 
-        # Clear terminal screen
-        os.system("clear")  # Use "cls" on Windows
-
-        # Print final summary
         print("\nFinal Bandwidth Summary")
         print("=" * 25)
         print(f"Total In:                 {self.total_in:.2f} MB ({self.total_in / 1024:.2f} GB)")
         print(f"Total Out:                {self.total_out:.2f} MB ({self.total_out / 1024:.2f} GB)")
         print(f"Total Accumulated:        {self.accumulated:.2f} MB ({self.accumulated / 1024:.2f} GB)")
+        print(f"Lifetime Total In:        {self.lifetime_total_in:.2f} MB ({self.lifetime_total_in / 1024:.2f} GB)")
+        print(f"Lifetime Total Out:       {self.lifetime_total_out:.2f} MB ({self.lifetime_total_out / 1024:.2f} GB)")
+        print(f"Lifetime Total:           {self.lifetime_accumulated:.2f} MB ({self.lifetime_accumulated / 1024:.2f} GB)")
         print(f"Elapsed Time:             {elapsed_formatted}")
         if avg_per_minute:
             print(f"Average Usage per Minute: {avg_per_minute:.2f} MB")
@@ -246,79 +250,60 @@ class BandwidthMonitor:
         print(f"Threshold Reached: {self.threshold_reached_count}")
         print("\nGoodbye!")
 
-        # Exit program
         sys.exit(0)
 
     def set_refresh_rate(self):
-        """
-        Prompt and set a new refresh rate for monitoring
-        """
-        curses.echo()  # Enable echoing of characters
+        curses.echo()
         self.stdscr.addstr(10, 0, "Enter new refresh rate (in seconds): ")
         self.stdscr.clrtoeol()
         self.stdscr.refresh()
         input_str = self.stdscr.getstr(10, 36).decode('utf-8')
-        curses.noecho()  # Disable echoing
-
+        curses.noecho()
         try:
             new_rate = float(input_str)
             self.refresh_rate = new_rate
             self.stdscr.addstr(11, 0, f"Refresh rate updated to {new_rate} seconds.")
-            self.stdscr.clrtoeol()
         except ValueError:
             self.stdscr.addstr(11, 0, "Invalid input. Refresh rate unchanged.")
-            self.stdscr.clrtoeol()
+        self.stdscr.clrtoeol()
         self.stdscr.refresh()
         time.sleep(2)
 
     def set_total_threshold(self):
-        """
-        Prompt and set a new total bandwidth threshold
-        """
         curses.echo()
         self.stdscr.addstr(10, 0, "Enter new total threshold (in MB): ")
         self.stdscr.clrtoeol()
         self.stdscr.refresh()
         input_str = self.stdscr.getstr(10, 34).decode('utf-8')
         curses.noecho()
-
         try:
             new_threshold = float(input_str)
             self.total_threshold = new_threshold
             self.stdscr.addstr(11, 0, f"Total threshold updated to {new_threshold} MB.")
-            self.stdscr.clrtoeol()
         except ValueError:
             self.stdscr.addstr(11, 0, "Invalid input. Threshold unchanged.")
-            self.stdscr.clrtoeol()
+        self.stdscr.clrtoeol()
         self.stdscr.refresh()
         time.sleep(2)
 
     def set_incremental_threshold(self):
-        """
-        Prompt and set a new incremental bandwidth threshold
-        """
         curses.echo()
         self.stdscr.addstr(10, 0, "Enter new incremental threshold (in MB): ")
         self.stdscr.clrtoeol()
         self.stdscr.refresh()
         input_str = self.stdscr.getstr(10, 42).decode('utf-8')
         curses.noecho()
-
         try:
             new_threshold = float(input_str)
             self.incremental_threshold = new_threshold
             self.stdscr.addstr(11, 0, f"Incremental threshold updated to {new_threshold} MB.")
-            self.stdscr.clrtoeol()
         except ValueError:
             self.stdscr.addstr(11, 0, "Invalid input. Incremental threshold unchanged.")
-            self.stdscr.clrtoeol()
+        self.stdscr.clrtoeol()
         self.stdscr.refresh()
         time.sleep(2)
 
     def show_help(self):
-        """
-        Display help menu with available commands
-        """
         self.stdscr.addstr(13, 0, "Bandwidth Monitor - Help Menu:")
         self.stdscr.addstr(14, 0, "-" * 30)
         self.stdscr.addstr(15, 0, "R/r  : Reset bandwidth usage")
@@ -331,9 +316,6 @@ class BandwidthMonitor:
         time.sleep(5)
 
 def parse_arguments():
-    """
-    Parse command-line arguments for bandwidth monitor configuration
-    """
     parser = argparse.ArgumentParser(description='Bandwidth Monitoring Tool')
     parser.add_argument('-t', '--threshold', type=float, default=100.0,
                         help='Total bandwidth threshold in MB')
@@ -344,35 +326,29 @@ def parse_arguments():
     return parser.parse_args()
 
 def main():
-    """Main application entry point"""
     args = parse_arguments()
 
-    # Initialize curses
     stdscr = curses.initscr()
     curses.noecho()
     curses.cbreak()
     stdscr.keypad(True)
 
     try:
-        # Create and run the bandwidth monitor
         monitor = BandwidthMonitor(
             threshold=args.threshold,
             refresh_rate=args.refresh,
-            incremental_threshold=args.incremental,
+            incremental_threshold=10.0,
             stdscr=stdscr
         )
         monitor.run()
     except KeyboardInterrupt:
-        # Handle Ctrl+C gracefully
         print("\nInterrupted! Exiting...")
         monitor.quit()
     finally:
-        # Ensure the terminal is restored
         curses.nocbreak()
         stdscr.keypad(False)
         curses.echo()
         curses.endwin()
-
 
 if __name__ == "__main__":
     main()

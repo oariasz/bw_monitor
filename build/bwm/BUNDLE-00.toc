@@ -1,0 +1,1 @@
+([('bwm', '/Users/oariasz/dev/Python/bw_monitor/dist/bwm', 'EXECUTABLE')],)
