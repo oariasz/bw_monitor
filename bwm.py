@@ -3,6 +3,7 @@ import time
 import psutil
 import argparse
 import sys
+import platform
 import curses
 import platform
 
@@ -66,6 +67,17 @@ class BandwidthMonitor:
             return None
         return self.accumulated / elapsed_hours
 
+<<<<<<< HEAD
+=======
+    def beep(self):
+        """Use 'afplay' to play a system sound."""
+        if platform.system() == "Darwin":
+            print("Playing beep using 'afplay'...")
+            os.system('afplay /System/Library/Sounds/Ping.aiff')
+        else:
+            print('beep: Only works on Mac OS')
+        
+>>>>>>> 8f691e814d38943389a31263c4924c20328943fc
     def get_bandwidth_usage(self):
         """
         Retrieve current network bandwidth usage in MB
@@ -194,7 +206,12 @@ class BandwidthMonitor:
     def alert_total_threshold(self):
         self.stdscr.addstr(9, 0, f"CAUTION: High consumption! Threshold {self.total_threshold} MB reached.")
         self.stdscr.refresh()
+<<<<<<< HEAD
         self.beep()
+=======
+        # Beep sound
+        self.beep()   # My own beep
+>>>>>>> 8f691e814d38943389a31263c4924c20328943fc
 
     def alert_incremental_threshold(self, current_usage):
         self.stdscr.addstr(10, 0, f"WARNING: Interval usage {current_usage:.2f} MB exceeds {self.incremental_threshold} MB limit.")
